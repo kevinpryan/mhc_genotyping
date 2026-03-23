@@ -84,47 +84,49 @@ map_sample_name_nci60 <- function(res_df) {
     select(-sample_id.new)
 }
 
-map_sample_name_tcga <- function(res_df) {
-  # Post-process res_df
-  # For xHLA the sample IDs were derived from the sample_id field in the JSON file
-  # As a result the sample_id is still erroneous
-  res_df = res_df %>%
-    group_by(tool) %>%
-    group_modify(function(df, tool) {
-      if (tool == "xHLA") {
-        df = mutate(df, sample_id=str_remove(sample_id, "([^_]*_){3}"))
-      }
-      df
-    })
-  
-  # Check whether the sample IDs are valid GUIDs
-  num_notcorrect <- res_df$sample_id %>%
-    keep(~str_length(.) != 36) %>%
-    length
-  stopifnot(num_notcorrect == 0)
-  
-  # Now we have correct GUIDs, adapt data type and sample name later
-  res_df
-}
+# map_sample_name_tcga <- function(res_df) {
+#   # Post-process res_df
+#   # For xHLA the sample IDs were derived from the sample_id field in the JSON file
+#   # As a result the sample_id is still erroneous
+#   res_df = res_df %>%
+#     group_by(tool) %>%
+#     group_modify(function(df, tool) {
+#       if (tool == "xHLA") {
+#         df = mutate(df, sample_id=str_remove(sample_id, "([^_]*_){3}"))
+#       }
+#       df
+#     })
+#   
+#   # Check whether the sample IDs are valid GUIDs
+#   num_notcorrect <- res_df$sample_id %>%
+#     keep(~str_length(.) != 36) %>%
+#     length
+#   stopifnot(num_notcorrect == 0)
+#   
+#   # Now we have correct GUIDs, adapt data type and sample name later
+#   res_df
+#}
 
 # Use case submitter IDs for TCGA data
 # Also rename "gathered" to the correct data_type
-sample_names_tcga = readRDS("data/sample_names_tcga.rds")
-map_sample_name_tcga2 <- function(res_df, key) {
-  if (key$dataset_suffix == "tcga") {
-    res_df %>%
-      select(file_id = sample_id, !all_of("data_type")) %>%
-      left_join(sample_names_tcga, by="file_id") %>%
-      select(-file_id)
-  } else {
-    res_df
-  }
-}
+# sample_names_tcga = readRDS("data/sample_names_tcga.rds")
+# map_sample_name_tcga2 <- function(res_df, key) {
+#   if (key$dataset_suffix == "tcga") {
+#     res_df %>%
+#       select(file_id = sample_id, !all_of("data_type")) %>%
+#       left_join(sample_names_tcga, by="file_id") %>%
+#       select(-file_id)
+#   } else {
+#     res_df
+#   }
+# }
 
 # Create map from dataset suffixes to the correct sample renaming function
 sample_funmap <- c("1kg" = map_sample_name_1kg,
-                   "nci60_1kg" = map_sample_name_nci60,
-                   "tcga" = map_sample_name_tcga)
+                   "nci60_1kg" = map_sample_name_nci60
+                   #,
+                   #"tcga" = map_sample_name_tcga
+                   )
 map_sample_name <- function(res_df, dataset) {
   if(dataset %in% names(sample_funmap)) {
     sample_funmap[[dataset]](res_df)
@@ -156,16 +158,19 @@ process_dataset <- function(dataset_suffix, data_type) {
 # Maps:
 # Map directory name to script filename prefix if different.
 mapped_tools <- c(
-  "HLAminer" = "HLAminerHPRA",
-  "HLAScan" = "HLAscan",
+  #"HLAminer" = "HLAminerHPRA",
+  #"HLAScan" = "HLAscan",
   "Kourami" = "kourami",
-  "HLA-VBSeq" = "HLAVBseq"
+  #"HLA-VBSeq" = "HLAVBseq"
 )
 
 conversion_functions <- load_conversion_functions(conversion_folder)
 
 predictions_cdf <- list("dataset_suffix" = dataset_suffix,
-     "data_type" = c("DNA-Seq", "RNA-Seq")) %>%
+     "data_type" = c("DNA-Seq"
+                     #, "RNA-Seq"
+                     #
+                     )) %>%
   # Create a dataframe with all (dataset, data type) combinations
   cross_df()
   
@@ -181,7 +186,7 @@ predictions_df = predictions_cdf %>%
   unnest(data) %>%
   # Special case for TCGA: rename sample ID and set data_type correctly
   group_by(dataset_suffix) %>%
-  group_modify(map_sample_name_tcga2) %>%
+  #group_modify(map_sample_name_tcga2) %>%
   ungroup %>%
   # Cleanup the names of the dataset
   mutate(dataset = dataset_names[dataset_suffix], dataset_suffix = NULL) %>%

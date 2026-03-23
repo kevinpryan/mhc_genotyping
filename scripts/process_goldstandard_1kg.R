@@ -1,5 +1,5 @@
 library(tidyverse)
-
+#setwd("/hlamajority-paper/external/mhc_genotyping/")
 # Read in combined gold standard
 source("scripts/functions/gold_standard_preprocessing.R")
 

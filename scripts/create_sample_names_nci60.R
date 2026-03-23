@@ -5,6 +5,7 @@ gs <- readRDS("downloads/pub/adams_2005/hla_calls.rds")
 # ----
 # Abaan (DNA)
 run_info <- readr::read_csv("downloads/pub/abaan_2013/run_info.csv")
+#summary <- readr::read_csv("downloads/pub/abaan_2013/sra_result.csv")
 
 # Determine overlap between cell lines of prediction and gold standard
 setdiff(run_info$SampleName, gs$`Cell Line`)
@@ -29,9 +30,13 @@ matched_sample_ids <- select(matched_sample_ids, -dist)
 
 # Create the final mapping table from SRR accession number
 # to the cell line names used in the gold standard
-mapping_table_abaan <- select(run_info, sample_id = Run, sample_id.old = SampleName) %>%
+mapping_table_abaan <- select(run_info, sample_id = Run, sample_id.old = SampleName, Experiment = Experiment) %>%
   left_join(matched_sample_ids, by = "sample_id.old") %>%
   transmute(sample_id.srr = sample_id, sample_id.new = if_else(is.na(sample_id.gs), sample_id.old, sample_id.gs))
+
+mapping_table_abaan_srx <- select(run_info, sample_id = Experiment, sample_id.old = SampleName) %>%
+  left_join(matched_sample_ids, by = "sample_id.old") %>%
+  transmute(sample_id.srx = sample_id, sample_id.new = if_else(is.na(sample_id.gs), sample_id.old, sample_id.gs))
 
 # ----
 # Idem for Reinhold (RNA)
@@ -67,7 +72,13 @@ mapping_table_reinhold <- select(reinhold_meta, sample_id = run_accession, sampl
   left_join(matched_sample_ids, by = "sample_id.old") %>%
   transmute(sample_id.srr = sample_id, sample_id.new = if_else(is.na(sample_id.gs), sample_id.old, sample_id.gs))
 
+mapping_table_reinhold_srx <- select(reinhold_meta, sample_id = experiment_accession, sample_id.old = library_name) %>%
+  left_join(matched_sample_ids, by = "sample_id.old") %>%
+  transmute(sample_id.srr = sample_id, sample_id.new = if_else(is.na(sample_id.gs), sample_id.old, sample_id.gs))
 mapping_table <- bind_rows(mapping_table_abaan, mapping_table_reinhold)
+mapping_table_srx <- bind_rows(mapping_table_abaan_srx, mapping_table_reinhold_srx)
 # ----
 
 saveRDS(mapping_table, "data/sample_names_nci60.rds")
+saveRDS(mapping_table_srx, "data/sample_names_nci60_srx.rds")
+

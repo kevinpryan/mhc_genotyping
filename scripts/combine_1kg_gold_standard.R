@@ -1,3 +1,4 @@
+# source: https://github.com/CCGGlab/mhc_genotyping/blob/main/scripts/combine_1kg_gold_standard.R
 library(tidyverse)
 # Function to rename gene columns
 column_rename <- function(x) {
@@ -41,6 +42,7 @@ preferred_rows <-
   )
 
 # Load the data
+#goldStandardLocation <- "/hlamajority-paper/data/1000-genomes/gold-standard/"
 goldStandardLocation <- "downloads/1kg/gold standard/"
 
 gourraud_df <- read_delim(paste0(goldStandardLocation, "20140702_hla_diversity.txt"), delim = ' ') %>%
@@ -48,7 +50,7 @@ gourraud_df <- read_delim(paste0(goldStandardLocation, "20140702_hla_diversity.t
   mutate(num_present = length(id)) %>%
   mutate(id_idx = paste0(id, '_', seq_along(id))) %>%
   ungroup %>%
-  filter((num_present == 1) | (id_idx %in% preferred_rows)) %>%
+  dplyr::filter((num_present == 1) | (id_idx %in% preferred_rows)) %>%
   select(-id_idx, -num_present) %>%
   rename(Subject = id) %>%
   select(-sbgroup) %>%
@@ -64,10 +66,10 @@ gourraud_df <- gourraud_df %>%
 
 # Read the two supplementary tables of the De Bakker data
 ## Supplementary tables 3 and 7 of seq2HLA paper (doi:10.1186/gm403)
-debakker1 = read.csv2(paste0(goldStandardLocation,"/DeBakker1.csv"))
+debakker1 = read.csv2(paste0(goldStandardLocation,"/DeBakker1.csv"), sep = ",")
 # Table I of doi:10.5281/zenodo.1338172
 # https://doi.org/10.5281/zenodo.1338172
-debakker2 = read.table(paste0(goldStandardLocation,"/DeBakker2.txt"))
+debakker2 = read.csv(paste0(goldStandardLocation,"/DeBakker2.csv"), sep = ",")
 
 # Standardize debakker1 format
 ## Column names
