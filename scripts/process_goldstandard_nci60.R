@@ -1,4 +1,5 @@
 library(tidyverse)
+setwd("/hlamajority-paper/external/mhc_genotyping/")
 source("scripts/functions/ggroup_mapper.R")
 test <- readRDS("downloads/pub/adams_2005/hla_calls.rds")
 test$`Cell Line`

@@ -1,7 +1,8 @@
 library(tidyverse)
-
+#setwd("/hlamajority-paper/external/mhc_genotyping/scripts/functions")
+#getwd()
 mapping = readRDS("data/ggroup_mapping.rds") %>%
-  select(allele, group) %>%
+  dplyr::select(allele, group) %>%
   deframe
 
 ga_map <- function(gene, allele) {

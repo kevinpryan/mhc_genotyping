@@ -1,5 +1,8 @@
 # source: https://github.com/CCGGlab/mhc_genotyping/blob/main/scripts/combine_1kg_gold_standard.R
 library(tidyverse)
+#setwd("/hlamajority-paper/external/mhc_genotyping/scripts/")
+setwd("/hlamajority-paper/external/mhc_genotyping/")
+
 # Function to rename gene columns
 column_rename <- function(x) {
   str_remove(x, '\\..*') %>% as_tibble_col("gene") %>% group_by(gene) %>% mutate(idx = 1:2) %>% ungroup %>% transmute(paste0('HLA.', gene, '.', idx)) %>% deframe
@@ -43,7 +46,7 @@ preferred_rows <-
 
 # Load the data
 #goldStandardLocation <- "/hlamajority-paper/data/1000-genomes/gold-standard/"
-goldStandardLocation <- "downloads/1kg/gold standard/"
+goldStandardLocation <- "downloads/1kg/gold_standard/"
 
 gourraud_df <- read_delim(paste0(goldStandardLocation, "20140702_hla_diversity.txt"), delim = ' ') %>%
   group_by(id) %>%
@@ -211,7 +214,7 @@ for(i in 1:length(extraSamples)){
   # The next 27 (= 5 + 22) we do not have information about
   gourraud_df = rbind(gourraud_df, c(newRow,rep("",5),rep(NA,22)))
 }
-
+getwd()
 # Write new gold standard to file
-write.table(gourraud_df, "temp/GourroudAndDeBakker_gold_standard.txt",
+write.table(x = gourraud_df, file = "temp/GourroudAndDeBakker_gold_standard.txt",
             quote = FALSE, append = FALSE, sep = "\t", row.names = FALSE, col.names = TRUE)

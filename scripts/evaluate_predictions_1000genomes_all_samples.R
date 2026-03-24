@@ -1,26 +1,28 @@
 library(dplyr)
+library(knitr)
 module_path <- "/hlamajority-paper/external/nf-hlamajority/bin/"
 options(box.path = module_path)
 box::use(lib/df_to_list[...])
 box::use(lib/are_vectors_identical[...])
 box::use(lib/majority_voting[...])
 setwd("/hlamajority-paper/external/mhc_genotyping/")
+source("scripts/functions/ggroup_mapper.R")
+source("scripts/functions/evaluate_predictions_functions.R")
 gold.standard.1kg <- readRDS("data/gold_standard_1kg.rds")
-hlamajority.in <- read.table("../../data/1000-genomes/benchmark-1000genomes-nfhlamajority-local-update-db-exclude-trim-majority-all-samples/benchmark-1000genomes-nfhlamajority-all-20260309-majority-handle-error-kourami-hlala/combined_results/nf_hlamajority_votes_combined_sorted.tsv", sep = "\t", header = T)
+hlamajority.in <- read.table("../../data/raw/1000-genomes/benchmark-1000genomes-nfhlamajority-local-update-db-exclude-trim-majority-all-samples/benchmark-1000genomes-nfhlamajority-all-20260309-majority-handle-error-kourami-hlala/combined_results/nf_hlamajority_votes_combined_sorted.tsv", sep = "\t", header = T)
 colnames(gold.standard.1kg)[1] <- "sample"
 colnames(gold.standard.1kg)[2:7] <- gsub(pattern = "\\.", replacement = "", colnames(gold.standard.1kg[2:7]))
 gold.standard.1kg <- as.data.frame(gold.standard.1kg)
 na_samples_gs <- gold.standard.1kg %>% 
   dplyr::filter(if_any(c(B1, B2, C1, C2), is.na))
-write.csv(na_samples_gs, file = "data/results/hlamajority/1000genomes-all-samples/1000-genomes-gs-na-samples.csv", row.names = F, quote = F)
-
-source("scripts/functions/ggroup_mapper.R")
-source("scripts/functions/evaluate_predictions_functions.R")
+outdir <- c("../../data/processed/results/hlamajority/1000genomes-all-samples/")
+dir.create(file.path("../../data/processed/", "results/hlamajority/1000genomes-all-samples/"), showWarnings = FALSE, recursive = TRUE)
+write.csv(na_samples_gs, file = paste(outdir, "1000-genomes-gs-na-samples.csv", sep = ""), row.names = F, quote = F)
 all.in <- read.table("../../data/1000-genomes/benchmark-1000genomes-nfhlamajority-local-update-db-exclude-trim-majority-all-samples/benchmark-1000genomes-nfhlamajority-all-20260309-majority-handle-error-kourami-hlala/combined_results/nf_hlamajority_all_calls_sorted.tsv", sep = "\t", header = T)
 all.in.coverage <- read.table("../../data/1000-genomes/benchmark-1000genomes-nfhlamajority-local-update-db-exclude-trim-majority-all-samples/benchmark-1000genomes-nfhlamajority-all-20260309-majority-handle-error-kourami-hlala/combined_results/nf_hlamajority_depth_sorted.tsv", sep = "\t", header = T)
 hlamajority_long <- hlamajority.in %>%
   mutate(tool = "hlamajority") %>%
-  select(sample, tool, everything()) # Ensure column order matches
+  dplyr::select(sample, tool, everything()) # Ensure column order matches
 
 hlamajority.in.wide <- hlamajority.in %>%
   pivot_wider(
@@ -60,35 +62,31 @@ benchmark_results <- run_full_benchmark(
 )
 
 full_stats <- calculate_overall_stats(benchmark_results$summary)
-write.csv(full_stats, file = "data/results/hlamajority/1000genomes-all-samples/1000-genomes-full-stats-hlamajority-majority-vote.csv", row.names = F, quote = F)
-saveRDS(benchmark_results, file = "data/results/hlamajority/1000genomes-all-samples/1000-genomes-full-results-hlamajority-majority-vote.Rds")
-benchmark_results$details$A$kourami
+write.csv(full_stats, file = paste(outdir, "1000-genomes-full-stats-hlamajority-majority-vote.csv", sep = ""), row.names = F, quote = F)
+saveRDS(benchmark_results, file = paste(outdir, "1000-genomes-full-results-hlamajority-majority-vote.Rds", sep = ""))
+#benchmark_results$details$A$kourami
 # 3. Create the Pretty Table
 clean_table <- format_publication_table(full_stats)
 
 # Print it nicely
-library(knitr)
 kable(clean_table, caption = "Accuracy by Gene and Overall (Excluding NAs)")
 
 
-extract_scores <- function(results, gene) {
-  x <- results$details[[gene]]$hlamajority$metrics$scores_per_person
-  
-  #tab <- table(x)
-  
-  data.frame(
-    gene  = paste("HLA-",gene, sep = ""),
-    sample  = names(x),
-    Score = as.integer(x),
-    row.names = NULL
-  )
-}
+# extract_scores <- function(results, gene) {
+#   x <- results$details[[gene]]$hlamajority$metrics$scores_per_person
+#   
+#   #tab <- table(x)
+#   
+#   data.frame(
+#     gene  = paste("HLA-",gene, sep = ""),
+#     sample  = names(x),
+#     Score = as.integer(x),
+#     row.names = NULL
+#   )
+# }
 
 extract_scores_tool <- function(results, gene, tool) {
   x <- results$details[[gene]][[tool]]$metrics$scores_per_person
-  
-  #tab <- table(x)
-  
   data.frame(
     gene  = paste("HLA-",gene, sep = ""),
     sample  = names(x),
@@ -116,5 +114,5 @@ final_df_score <- do.call(
 )
 
 
-write.csv(final_df_score, file = "data/results/hlamajority/1000genomes-all-samples/1000genomes-score-per-sample.csv", row.names = F, quote= F)
-final_df_score
+write.csv(final_df_score, file = paste(outdir, "1000genomes-score-per-sample.csv", sep = ""), row.names = F, quote= F)
+#final_df_score

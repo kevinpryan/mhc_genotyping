@@ -1,7 +1,7 @@
 library(tidyverse)
+setwd("/hlamajority-paper/external/mhc_genotyping/")
 # Read gold standard data to match the cell line IDs
 gs <- readRDS("downloads/pub/adams_2005/hla_calls.rds")
-
 # ----
 # Abaan (DNA)
 run_info <- readr::read_csv("downloads/pub/abaan_2013/run_info.csv")
