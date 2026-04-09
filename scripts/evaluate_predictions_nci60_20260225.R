@@ -53,25 +53,29 @@ tools_to_analyze <- unique(master_df$tool)
 genes_to_analyze <- c("A", "B", "C")
 
 # Map SRR to cell line names
-sample_names_nci60 <- readRDS("data/sample_names_nci60.rds")
+#sample_names_nci60 <- readRDS("data/sample_names_nci60.rds")
+sample_names_nci60 <- readRDS("data/sample_names_nci60_srx.rds") %>% rename(sample = "sample_id.srx")
 map_sample_name_nci60 <- function(res_df) {
   res_df <- res_df %>%
-    left_join(sample_names_nci60, by = c("sample" = "Experiment")) %>%
+    #left_join(sample_names_nci60, by = c("sample" = "Experiment")) %>%
+    left_join(sample_names_nci60, by = "sample") %>%
     mutate(sample_id = coalesce(sample_id.new, sample)) %>%
-    select(-sample_id.new, -sample_id.srr) %>% 
-    dplyr::mutate(sample = sample_id.gs) %>%
-    dplyr::select(-sample_id, -sample_id.old, -sample_id.gs)
+    dplyr::select(-sample_id.new, -sample_id.srr) %>% 
+    dplyr::mutate(sample = sample_id) 
+    #dplyr::select(-sample_id, -sample_id.old, -sample_id.gs)
 }
 
 map_sample_name_nci60_full <- function(res_df) {
   res_df <- res_df %>%
-    left_join(sample_names_nci60, by = c("sample" = "Experiment")) %>%
+    #left_join(sample_names_nci60, by = c("sample" = "Experiment")) %>%
+    left_join(sample_names_nci60, by = "sample") %>%
     mutate(sample_id = coalesce(sample_id.new, sample)) %>%
-    select(-sample_id.new, -sample_id.srr) %>% 
-    dplyr::mutate(sample = sample_id.gs) %>%
-    dplyr::select(-sample_id.old, -sample_id.gs)
+    dplyr::mutate(sample = sample_id)
+    #select(-sample_id.new, -sample_id.srr) %>% 
+    #dplyr::select(-sample_id.old, -sample_id.gs)
 }
-
+print("master_df...")
+head(master_df)
 master_df_mapped <- map_sample_name_nci60(master_df)                   
 master_df_mapped_full <- map_sample_name_nci60_full(master_df)                   
 #saveRDS(master_df_mapped_full, file = "data/results/hlamajority/nci-map.Rds")
