@@ -8,9 +8,11 @@ box::use(lib/majority_voting[...])
 setwd("/hlamajority-paper/external/mhc_genotyping/")
 gold.standard.nci60 <- readRDS("data/gold_standard_nci60.rds")
 #hlamajority.in <- read.table("../../data/cell-lines/benchmark-cell-lines-all-kourami-3-63-0-majority-vote/combined_results/nf_hlamajority_votes_combined_sorted.tsv", sep = "\t", header = T)
-hlamajority.in <- read.table("../../data/raw/cell-lines/benchmark-cell-lines-all-kourami-3-63-0-majority-vote/combined_results/nf_hlamajority_votes_combined_sorted.tsv", sep = "\t", header = T)
+#hlamajority.in <- read.table("../../data/raw/cell-lines/benchmark-cell-lines-all-kourami-3-63-0-majority-vote/combined_results/nf_hlamajority_votes_combined_sorted.tsv", sep = "\t", header = T)
+hlamajority.in <- read.table("../../data/raw/cell-lines/majority/combined_results/nf_hlamajority_votes_combined_sorted.tsv", sep = "\t", header = T)
 
-all.in <- read.table("../../data/raw/cell-lines/benchmark-cell-lines-all-kourami-3-63-0-majority-vote/combined_results/nf_hlamajority_all_calls_sorted.tsv", sep = "\t", header = T)
+#all.in <- read.table("../../data/raw/cell-lines/benchmark-cell-lines-all-kourami-3-63-0-majority-vote/combined_results/nf_hlamajority_all_calls_sorted.tsv", sep = "\t", header = T)
+all.in <- read.table("../../data/raw/cell-lines/majority/combined_results/nf_hlamajority_all_calls_sorted.tsv", sep = "\t", header = T)
 #all.in.coverage <- read.table("../../data/cell-lines/benchmark-cell-lines-all/combined_results/nf_hlamajority_mean_depth_exons2_3_hla_classI_sorted.tsv", sep = "\t", header = T)
 colnames(gold.standard.nci60)[1] <- "sample"
 colnames(gold.standard.nci60)[2:7] <- gsub(pattern = "\\.", replacement = "", colnames(gold.standard.nci60[2:7]))
@@ -73,9 +75,12 @@ map_sample_name_nci60_full <- function(res_df) {
 master_df_mapped <- map_sample_name_nci60(master_df)                   
 master_df_mapped_full <- map_sample_name_nci60_full(master_df)                   
 #saveRDS(master_df_mapped_full, file = "data/results/hlamajority/nci-map.Rds")
-outdir <- c("../../data/processed/results/hlamajority/cell-lines/")
+#outdir <- c("../../data/processed/results/hlamajority/cell-lines/")
+outdir <- c("../../data/processed/cell-lines/majority/")
+
 dir.create(file.path(outdir), showWarnings = FALSE, recursive = TRUE)
-saveRDS(master_df_mapped_full, file = "../../data/processed/results/hlamajority/cell-lines/nci-map.Rds")
+saveRDS(master_df_mapped_full, file = paste(outdir, "nci-map.Rds", sep = ""))
+#"../../data/processed/results/hlamajority/cell-lines/nci-map.Rds")
 
 # Run the benchmark
 benchmark_results <- run_full_benchmark(
@@ -86,19 +91,21 @@ benchmark_results <- run_full_benchmark(
 )
 #benchmark_results$gold_standard_missing %>% group_by(Gene) %>% summarise(n = n())
 #saveRDS(benchmark_results, file = "data/results/hlamajority/nci-full-results-hlamajority-majority-vote.Rds")
-saveRDS(benchmark_results, file = "../../data/processed/results/hlamajority/cell-lines/nci-full-results-hlamajority-majority-vote.Rds")
-
+#saveRDS(benchmark_results, file = "../../data/processed/results/hlamajority/cell-lines/nci-full-results-hlamajority-majority-vote.Rds")
+saveRDS(benchmark_results, file = paste(outdir, "nci-full-results-hlamajority-majority-vote.Rds", sep = ""))
 full_stats <- calculate_overall_stats(benchmark_results$summary)
 #write.csv(full_stats, file = "data/results/hlamajority/nci-full-stats-hlamajority-majority-vote.csv", row.names = F, quote = F)
-write.csv(full_stats, file = "../../data/processed/results/hlamajority/cell-lines/nci-full-stats-hlamajority-majority-vote.csv", row.names = F, quote = F)
-
+#write.csv(full_stats, file = "../../data/processed/results/hlamajority/cell-lines/nci-full-stats-hlamajority-majority-vote.csv", row.names = F, quote = F)
+write.csv(full_stats, file = paste(outdir, "nci-full-stats-hlamajority-majority-vote.csv", sep = ""), row.names = F, quote = F)
 # 3. Create the Pretty Table
 clean_table <- format_publication_table(full_stats)
 
 # Print it nicely
 kable(clean_table, caption = "Accuracy by Gene and Overall (Excluding NAs)")
 
-all_results_hlamajority <- vroom("../../data/cell-lines/benchmark-cell-lines-all-kourami-3-63-0-majority-vote/combined_results/nf_hlamajority_votes_combined_sorted.tsv")
+#all_results_hlamajority <- vroom("../../data/cell-lines/benchmark-cell-lines-all-kourami-3-63-0-majority-vote/combined_results/nf_hlamajority_votes_combined_sorted.tsv")
+all_results_hlamajority <- vroom("../../data/raw/cell-lines/majority/combined_results/nf_hlamajority_votes_combined_sorted.tsv")
+
 all_results_hlamajority_cell_line_id <- map_sample_name_nci60(all_results_hlamajority)
 
 extract_scores_tool <- function(results, gene, tool) {
@@ -131,7 +138,8 @@ final_df_score <- do.call(
 all_results_hlamajority_cell_line_id_for_join <- all_results_hlamajority_cell_line_id %>% dplyr::select(-allele1, -allele2, -matching_tools)
 score_support <- left_join(final_df_score, all_results_hlamajority_cell_line_id_for_join, by = c("sample", "gene")) 
 #write.csv(score_support, file = "data/results/hlamajority/nci60-score-depth-per-sample-per-tool.csv", row.names = F, quote= F)
-write.csv(score_support, file = "../../data/processed/results/hlamajority/cell-lines/nci60-score-depth-per-sample-per-tool.csv", row.names = F, quote= F)
+#write.csv(score_support, file = "../../data/processed/results/hlamajority/cell-lines/nci60-score-depth-per-sample-per-tool.csv", row.names = F, quote= F)
+write.csv(score_support, file = paste(outdir, "nci60-score-depth-per-sample-per-tool.csv", sep = ""), row.names = F, quote= F) #"../../data/processed/results/hlamajority/cell-lines/nci60-score-depth-per-sample-per-tool.csv", row.names = F, quote= F)
 
 #cor(score_support$support, score_support$Score, method = "spearman")
 #plot(score_support$support, score_support$Score)

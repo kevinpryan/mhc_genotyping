@@ -9,17 +9,22 @@ setwd("/hlamajority-paper/external/mhc_genotyping/")
 source("scripts/functions/ggroup_mapper.R")
 source("scripts/functions/evaluate_predictions_functions.R")
 gold.standard.1kg <- readRDS("data/gold_standard_1kg.rds")
-hlamajority.in <- read.table("../../data/raw/1000-genomes/benchmark-1000genomes-nfhlamajority-local-update-db-exclude-trim-majority-all-samples/benchmark-1000genomes-nfhlamajority-all-20260309-majority-handle-error-kourami-hlala/combined_results/nf_hlamajority_votes_combined_sorted.tsv", sep = "\t", header = T)
+#hlamajority.in <- read.table("../../data/raw/1000-genomes/benchmark-1000genomes-nfhlamajority-local-update-db-exclude-trim-majority-all-samples/benchmark-1000genomes-nfhlamajority-all-20260309-majority-handle-error-kourami-hlala/combined_results/nf_hlamajority_votes_combined_sorted.tsv", sep = "\t", header = T)
+hlamajority.in <- read.table("../../data/raw/1000-genomes/majority/all_samples/combined_results/nf_hlamajority_votes_combined_sorted.tsv", sep = "\t", header = T)
 colnames(gold.standard.1kg)[1] <- "sample"
 colnames(gold.standard.1kg)[2:7] <- gsub(pattern = "\\.", replacement = "", colnames(gold.standard.1kg[2:7]))
 gold.standard.1kg <- as.data.frame(gold.standard.1kg)
 na_samples_gs <- gold.standard.1kg %>% 
   dplyr::filter(if_any(c(B1, B2, C1, C2), is.na))
-outdir <- c("../../data/processed/results/hlamajority/1000genomes-all-samples/")
-dir.create(file.path("../../data/processed/", "results/hlamajority/1000genomes-all-samples/"), showWarnings = FALSE, recursive = TRUE)
+#outdir <- c("../../data/processed/results/hlamajority/1000genomes-all-samples/")
+outdir <- c("../../data/processed/1000-genomes/majority/")
+dir.create(file.path(outdir), showWarnings = FALSE, recursive = TRUE)
+#dir.create(file.path("../../data/processed/", "results/hlamajority/1000genomes-all-samples/"), showWarnings = FALSE, recursive = TRUE)
 write.csv(na_samples_gs, file = paste(outdir, "1000-genomes-gs-na-samples.csv", sep = ""), row.names = F, quote = F)
-all.in <- read.table("../../data/1000-genomes/benchmark-1000genomes-nfhlamajority-local-update-db-exclude-trim-majority-all-samples/benchmark-1000genomes-nfhlamajority-all-20260309-majority-handle-error-kourami-hlala/combined_results/nf_hlamajority_all_calls_sorted.tsv", sep = "\t", header = T)
-all.in.coverage <- read.table("../../data/1000-genomes/benchmark-1000genomes-nfhlamajority-local-update-db-exclude-trim-majority-all-samples/benchmark-1000genomes-nfhlamajority-all-20260309-majority-handle-error-kourami-hlala/combined_results/nf_hlamajority_depth_sorted.tsv", sep = "\t", header = T)
+#all.in <- read.table("../../data/1000-genomes/benchmark-1000genomes-nfhlamajority-local-update-db-exclude-trim-majority-all-samples/benchmark-1000genomes-nfhlamajority-all-20260309-majority-handle-error-kourami-hlala/combined_results/nf_hlamajority_all_calls_sorted.tsv", sep = "\t", header = T)
+#all.in.coverage <- read.table("../../data/1000-genomes/benchmark-1000genomes-nfhlamajority-local-update-db-exclude-trim-majority-all-samples/benchmark-1000genomes-nfhlamajority-all-20260309-majority-handle-error-kourami-hlala/combined_results/nf_hlamajority_depth_sorted.tsv", sep = "\t", header = T)
+all.in <- read.table("../../data/raw/1000-genomes/majority/all_samples/combined_results/nf_hlamajority_all_calls_sorted.tsv", sep = "\t", header = T)
+all.in.coverage <- read.table("../../data/raw/1000-genomes/majority/all_samples/combined_results/nf_hlamajority_depth_sorted.tsv", sep = "\t", header = T)
 hlamajority_long <- hlamajority.in %>%
   mutate(tool = "hlamajority") %>%
   dplyr::select(sample, tool, everything()) # Ensure column order matches
