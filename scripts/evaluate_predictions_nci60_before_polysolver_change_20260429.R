@@ -9,10 +9,10 @@ setwd("/hlamajority-paper/external/mhc_genotyping/")
 gold.standard.nci60 <- readRDS("data/gold_standard_nci60.rds")
 #hlamajority.in <- read.table("../../data/cell-lines/benchmark-cell-lines-all-kourami-3-63-0-majority-vote/combined_results/nf_hlamajority_votes_combined_sorted.tsv", sep = "\t", header = T)
 #hlamajority.in <- read.table("../../data/raw/cell-lines/benchmark-cell-lines-all-kourami-3-63-0-majority-vote/combined_results/nf_hlamajority_votes_combined_sorted.tsv", sep = "\t", header = T)
-hlamajority.in <- read.table("../../data/raw/cell-lines/majority/combined_results/nf_hlamajority_votes_combined_sorted.tsv", sep = "\t", header = T)
+hlamajority.in <- read.table("../../data/raw/cell-lines-before-polysolver-change/majority/combined_results/nf_hlamajority_votes_combined_sorted.tsv", sep = "\t", header = T)
 
 #all.in <- read.table("../../data/raw/cell-lines/benchmark-cell-lines-all-kourami-3-63-0-majority-vote/combined_results/nf_hlamajority_all_calls_sorted.tsv", sep = "\t", header = T)
-all.in <- read.table("../../data/raw/cell-lines/majority/combined_results/nf_hlamajority_all_calls_sorted.tsv", sep = "\t", header = T)
+all.in <- read.table("../../data/raw/cell-lines-before-polysolver-change/majority/combined_results/nf_hlamajority_all_calls_sorted.tsv", sep = "\t", header = T)
 #all.in.coverage <- read.table("../../data/cell-lines/benchmark-cell-lines-all/combined_results/nf_hlamajority_mean_depth_exons2_3_hla_classI_sorted.tsv", sep = "\t", header = T)
 colnames(gold.standard.nci60)[1] <- "sample"
 colnames(gold.standard.nci60)[2:7] <- gsub(pattern = "\\.", replacement = "", colnames(gold.standard.nci60[2:7]))
@@ -85,7 +85,7 @@ master_df_mapped <- map_sample_name_nci60(master_df)
 master_df_mapped_full <- map_sample_name_nci60_full(master_df)                   
 #saveRDS(master_df_mapped_full, file = "data/results/hlamajority/nci-map.Rds")
 #outdir <- c("../../data/processed/results/hlamajority/cell-lines/")
-outdir <- c("../../data/processed/cell-lines/majority/")
+outdir <- c("../../data/processed/cell-lines-before-polysolver-change/majority/")
 
 dir.create(file.path(outdir), showWarnings = FALSE, recursive = TRUE)
 saveRDS(master_df_mapped_full, file = paste(outdir, "nci-map.Rds", sep = ""))
@@ -114,7 +114,7 @@ clean_table <- format_publication_table(full_stats)
 kable(clean_table, caption = "Accuracy by Gene and Overall (Excluding NAs)")
 
 #all_results_hlamajority <- vroom("../../data/cell-lines/benchmark-cell-lines-all-kourami-3-63-0-majority-vote/combined_results/nf_hlamajority_votes_combined_sorted.tsv")
-all_results_hlamajority <- vroom("../../data/raw/cell-lines/majority/combined_results/nf_hlamajority_votes_combined_sorted.tsv")
+all_results_hlamajority <- vroom("../../data/raw/cell-lines-before-polysolver-change/majority/combined_results/nf_hlamajority_votes_combined_sorted.tsv")
 
 all_results_hlamajority_cell_line_id <- map_sample_name_nci60(all_results_hlamajority)
 
