@@ -35,7 +35,7 @@ clean_list <- function(input_list, gene_name) {
     mapped_x <- ga_map(gene_name, x)
     
     # 2. If mapped_x returns multiple options (ambiguity), 
-    # Claeys took the first one. You should too for consistency.
+    # Claeys took the first one.
     final_x <- sapply(mapped_x, function(y) head(y, 1))
     
     return(final_x)
@@ -54,6 +54,7 @@ df_to_list_fix <- function(df, cols) {
   # 2. Extract only the relevant columns safely
   # as.matrix converts tibbles/dataframes to a base matrix
   # as.character ensures Factors are converted to Strings (prevents sort errors)
+  print(head(df))
   sub_matrix <- as.matrix(df[, cols, drop = FALSE])
   mode(sub_matrix) <- "character" 
   
@@ -563,5 +564,245 @@ run_full_benchmark <- function(master_df, gold_standard, genes, tools) {
               details = detailed_artifacts,
               gold_standard_missing = gold_standard_missing
       )
+  )
+}
+
+run_full_benchmark_concordance <- function(master_df, gold_standard, genes, tools) {
+  
+  # Initialize storage
+  summary_stats <- data.frame() # For Accuracy/Call Rate table
+  detailed_artifacts <- list()  # For specific error tables/heatmaps
+  gold_standard_missing <- data.frame()   
+  concordance_stats <- data.frame()
+  all_discordant <- list()
+  for (gene in genes) {
+    print(paste("=== Processing HLA-", gene, " ===", sep=""))
+    
+    # 1. Prepare Gold Standard for this gene
+    #    (Extract cols A1/A2, convert to list, Clean G-groups)
+    cols <- c(paste0(gene, "1"), paste0(gene, "2"))
+    gs_list_raw <- df_to_list_fix(gold_standard, cols = cols)
+    print("dim(gold_standard)")
+    print(dim(gold_standard))
+    print("length(gs_list_raw)")
+    print(length(gs_list_raw))
+    gs_list_clean <- clean_list(gs_list_raw, gene)
+    # Gold standard callable samples (non-NA alleles)
+    gs_callable <- sapply(gs_list_clean, function(x) !any(is.na(x)))
+    gs_callable_ids <- names(gs_callable)[gs_callable]
+    n_gs_called <- length(gs_callable_ids)
+    print(n_gs_called)
+    gs_not_callable <- sapply(gs_list_clean, function(x) any(is.na(x)))
+    sapply(gs_list_clean, function(x) if (any(is.na(x))){print(x)})
+    gs_not_callable_ids <- names(gs_not_callable)[gs_not_callable]
+    print(paste("non-callable gold standard:", gs_not_callable_ids, sep = " "))
+    if (length(gs_not_callable_ids) > 0) {
+      
+      missing_df <- data.frame(
+        Gene = gene,
+        Sample = gs_not_callable_ids,
+        GS_Allele1 = sapply(gs_list_clean[gs_not_callable_ids], function(x) x[1]),
+        GS_Allele2 = sapply(gs_list_clean[gs_not_callable_ids], function(x) x[2]),
+        stringsAsFactors = FALSE
+      )
+      
+      gold_standard_missing <- rbind(gold_standard_missing, missing_df)
+    }
+    for (tool in tools) {
+      # 2. Prepare Tool Data
+      tool_data <- master_df %>% filter(tool == !!tool)
+      
+      # Skip if tool didn't call this gene (safety check)
+      if (nrow(tool_data) == 0) next
+      
+      # Convert to list and clean
+      tool_list_raw <- df_to_list_fix(tool_data, cols = cols)
+      tool_list_clean <- clean_list(tool_list_raw, gene)
+      
+      # 3. Run Accuracy Comparison (excludes NAs)
+      #    Note: ensure run_comparison returns the list we defined previously
+      metrics <- run_comparison(gs_list_clean, tool_list_clean, tool_name = tool)
+      
+      # 4. Run Error Typing (Zygosity checks)
+      #    Note: We use the cleaned lists here
+      error_types <- analyze_error_types(gs_list_clean, tool_list_clean, tool)
+      
+      # 5. Run Difficult Allele Analysis
+      #    (Extracts the 'incorrect_df' from the metrics object)
+      diff_alleles <- analyze_difficult_alleles(gs_list_clean, metrics$gold_standard_vs_tool_incorrect_calls)
+      tool_sub <- tool_list_clean[gs_callable_ids]
+      
+      # Tool callable among GS-callable samples
+      tool_callable <- sapply(tool_sub, function(x) !any(is.na(x)))
+      
+      n_total <- length(gs_callable_ids)        # gold-standard calls
+      n_called <- sum(tool_callable)             # tool calls where GS is callable
+      n_excluded_na <- n_total - n_called        # guaranteed ≥ 0
+      
+      call_rate <- n_called / n_total
+      
+      summary_stats <- rbind(summary_stats, data.frame(
+        Gene = gene,
+        Tool = tool,
+        Accuracy = metrics$final_accuracy,
+        Call_Rate = call_rate,
+        Num_Samples = n_total,              # GS callable
+        Num_GS_Called = n_gs_called,         # same as Num_Samples (explicit)
+        Num_Tool_Called = n_called,
+        Num_Excluded_NA = n_excluded_na
+      ))
+      
+      # 7. Store Detailed Artifacts (nested list)
+      # Structure: List$Gene$Tool$Object
+      detailed_artifacts[[gene]][[tool]] <- list(
+        metrics = metrics,
+        error_types = error_types,
+        difficult_alleles = diff_alleles
+      )
+    }
+    tool_gene_data <- lapply(tools, function(tool) {
+      df <- master_df %>% filter(tool == !!tool)
+      tool_list_raw <- df_to_list_fix(df, cols = cols)
+      clean_list(tool_list_raw, gene)
+    })
+    names(tool_gene_data) <- tools
+    
+    tool_pairs <- combn(tools, 2, simplify = FALSE)
+    
+    for (pair in tool_pairs) {
+      t1 <- pair[1]
+      t2 <- pair[2]
+      
+      x <- tool_gene_data[[t1]]
+      y <- tool_gene_data[[t2]]
+      
+      common_ids <- intersect(names(x), names(y))
+      
+      if (length(common_ids) == 0) next
+      
+      x_sub <- x[common_ids]
+      y_sub <- y[common_ids]
+      
+      both_called <- !sapply(x_sub, function(z) any(is.na(z))) &
+        !sapply(y_sub, function(z) any(is.na(z)))
+      
+      usable_ids <- common_ids[both_called]
+      
+      if (length(usable_ids) == 0) next
+      
+      # agree <- sapply(usable_ids, function(id) {
+      #   identical(sort(x[[id]]), sort(y[[id]]))
+      # })
+      discordant <- list()
+      agree <- sapply(usable_ids, function(id) {
+        
+        a <- x[[id]]
+        b <- y[[id]]
+        
+        a_sorted <- sort(a)
+        b_sorted <- sort(b)
+        
+        is_match <- identical(a_sorted, b_sorted)
+        
+        # Debug print (only when mismatch or always if you prefer)
+        # if (!is_match) {
+        # 
+        #   message("Mismatch in gene: ", gene,
+        #           " | ID: ", id,
+        #           " | Tool1: ", paste(a_sorted, collapse = ","), 
+        #           " | Tool2: ", paste(b_sorted, collapse = ","))
+        #   
+        #   discordant[[length(discordant) + 1]] <<- data.frame(
+        #     Gene = gene,
+        #     Tool1 = t1,
+        #     Tool2 = t2,
+        #     Sample = id,
+        #     Tool1_call = paste(a, collapse = ","),
+        #     Tool2_call = paste(b, collapse = ","),
+        #     stringsAsFactors = FALSE
+        #   )
+        # }
+        if (!is_match) {
+          
+          gs_call <- gs_list_clean[[id]]
+          
+          discordant[[length(discordant) + 1]] <<- data.frame(
+            Gene = gene,
+            Tool1 = t1,
+            Tool2 = t2,
+            Sample = id,
+            
+            Tool1_call = paste(a_sorted, collapse = ","),
+            Tool2_call = paste(b_sorted, collapse = ","),
+            
+            GS_call = paste(sort(gs_call), collapse = ","),
+            
+            Tool1_vs_GS_match = identical(a_sorted, sort(gs_call)),
+            Tool2_vs_GS_match = identical(b_sorted, sort(gs_call)),
+            
+            Tool1_overlap = length(intersect(a_sorted, gs_call)) / 2,
+            Tool2_overlap = length(intersect(b_sorted, gs_call)) / 2,
+            
+            stringsAsFactors = FALSE
+          )
+        }
+        # } else {
+        #   message("Match | Gene: ", gene,
+        #           " | ID: ", id)
+        # }
+        
+        is_match
+      })
+      
+      # if (length(discordant) > 0) {
+        discordant_df <- do.call(rbind, discordant)
+        all_discordant[[length(all_discordant) + 1]] <- discordant_df
+
+      #   
+      #   message("Top discordant samples for ", gene, " | ", t1, " vs ", t2)
+      #   
+      #   print(
+      #     head(
+      #       discordant_df[order(discordant_df$Sample), ],
+      #       10
+      #     )
+      #   )
+      # }
+      
+      concordance_stats <- rbind(concordance_stats, data.frame(
+        Gene = gene,
+        Tool1 = t1,
+        Tool2 = t2,
+        Concordance = sum(agree) / length(agree),
+        N = length(agree)
+      ))
+      
+    }
+  }
+  all_discordant_df <- do.call(rbind, all_discordant)
+  
+  tool_long <- bind_rows(
+    concordance_stats %>% select(Gene, Tool = Tool1, Tool2, Concordance),
+    concordance_stats %>% select(Gene, Tool = Tool2, Tool2 = Tool1, Concordance)
+  ) %>% dplyr::filter(Tool != "Optitype_ad")
+  
+  tool_gene_discordance <- tool_long %>%
+    group_by(Gene, Tool) %>%
+    summarise(
+      mean_concordance = mean(Concordance),
+      discordance = 1 - mean_concordance,
+      n_partners = n(),
+      .groups = "drop"
+    )
+  
+  # all_discordant_df %>%
+  #   dplyr::count(Sample, sort = TRUE)
+  return(list(summary = summary_stats, 
+              concordance = concordance_stats,
+              details = detailed_artifacts,
+              gold_standard_missing = gold_standard_missing,
+              discordance = all_discordant_df,
+              tool_gene_discordance = tool_gene_discordance
+  )
   )
 }

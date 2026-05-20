@@ -74,11 +74,13 @@ mapping_table_reinhold <- select(reinhold_meta, sample_id = run_accession, sampl
 
 mapping_table_reinhold_srx <- select(reinhold_meta, sample_id = experiment_accession, sample_id.old = library_name) %>%
   left_join(matched_sample_ids, by = "sample_id.old") %>%
-  transmute(sample_id.srr = sample_id, sample_id.new = if_else(is.na(sample_id.gs), sample_id.old, sample_id.gs))
+  transmute(sample_id.srx = sample_id, sample_id.new = if_else(is.na(sample_id.gs), sample_id.old, sample_id.gs))
 mapping_table <- bind_rows(mapping_table_abaan, mapping_table_reinhold)
 mapping_table_srx <- bind_rows(mapping_table_abaan_srx, mapping_table_reinhold_srx)
 # ----
 
 saveRDS(mapping_table, "data/sample_names_nci60.rds")
 saveRDS(mapping_table_srx, "data/sample_names_nci60_srx.rds")
+saveRDS(mapping_table_reinhold_srx, "data/sample_names_nci60_reinhold_srx.rds")
 
+# create mapping table with both DNA and RNA
