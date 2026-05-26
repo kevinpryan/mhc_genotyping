@@ -1,5 +1,5 @@
 library(tidyverse)
-
+setwd("/hlamajority-paper/external/mhc_genotyping/")
 trim_genes <- function(x) {
   str_replace(x, "^([0-9]+:[0-9]+).*", "\\1") %>%
     # Ensure the same allele is always chosen as the group designation
@@ -55,6 +55,6 @@ g_groups %>%
   group_by(allele) %>%
   summarise(l=list(unique(group))) %>%
   filter(map_lgl(l, ~length(.) > 1))
-
+#dir.create(file.path("data"), showWarnings = FALSE, recursive = TRUE)
 g_groups %>%
   saveRDS("data/ggroup_mapping.rds")

@@ -216,5 +216,6 @@ for(i in 1:length(extraSamples)){
 }
 getwd()
 # Write new gold standard to file
+dir.create(file.path("temp"), showWarnings = FALSE, recursive = TRUE)
 write.table(x = gourraud_df, file = "temp/GourroudAndDeBakker_gold_standard.txt",
             quote = FALSE, append = FALSE, sep = "\t", row.names = FALSE, col.names = TRUE)
