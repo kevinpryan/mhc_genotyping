@@ -1,5 +1,10 @@
 library(tidyverse)
 setwd("/hlamajority-paper/external/mhc_genotyping/")
+outersect <- function(x, y) {
+  sort(c(setdiff(x, y),
+         setdiff(y, x)))
+}
+
 # Read gold standard data to match the cell line IDs
 gs <- readRDS("downloads/pub/adams_2005/hla_calls.rds")
 # ----
@@ -9,6 +14,7 @@ run_info <- readr::read_csv("downloads/pub/abaan_2013/run_info.csv")
 
 # Determine overlap between cell lines of prediction and gold standard
 setdiff(run_info$SampleName, gs$`Cell Line`)
+non.matching.names <- setdiff(run_info$SampleName, gs$`Cell Line`)
 # => 15 cell lines of the prediction were not present in the gold standard (with an exact match)
 
 # Some cell lines are present with a slightly different name
@@ -21,6 +27,10 @@ matched_sample_ids <- fuzzyjoin::stringdist_right_join(
   group_by(sample_id.old) %>%
   slice_min(order_by = dist, n = 1)
 
+# recovered ids
+recovered_ids <- matched_sample_ids %>% dplyr::filter(dist >= 1)
+outersect(recovered_ids$sample_id.old, non.matching.names)
+# "MALME-3M" "MDA-N" could not be recovered
 # Matching of sample IDs was checked manually and considered to be correct
 matched_sample_ids %>%
   filter(dist > 0)

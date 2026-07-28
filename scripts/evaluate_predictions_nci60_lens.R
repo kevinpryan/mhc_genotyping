@@ -31,7 +31,7 @@ map_sample_name_nci60_full <- function(res_df) {
 }
 master_df_mapped_full_lens <- map_sample_name_nci60_full(lens_results)        
 master_df_mapped_full_lens <- master_df_mapped_full_lens %>% dplyr::select(c("sample", "tool", "A1", "A2", "B1", "B2", "C1", "C2"))
-gold.standard.nci60 <- gold.standard.nci60 %>% dplyr::filter(sample != "UO-31")
+#gold.standard.nci60 <- gold.standard.nci60 %>% dplyr::filter(sample != "UO-31")
 
 # benchmark_results_lens <- run_full_benchmark(
 #   master_df = master_df_mapped_full_lens,
@@ -63,6 +63,10 @@ cell.line.in.wide <- hlamajority.in %>%
   mutate(tool = "hlamajority")
 all.in <- read.table("../../data/raw/cell-lines-after-polysolver-change/majority/combined_results/nf_hlamajority_all_calls_sorted.tsv", sep = "\t", header = T)
 master_df <- bind_rows(all.in, cell.line.in.wide)
+
+# ## test concordance does it make sense
+# master_df_optitype_hlamajority <- master_df %>% dplyr::filter(tool %in% c("optitype", "hlamajority"))
+
 genes_to_analyze <- c("A", "B", "C")
 sample_names_nci60 <- readRDS("data/sample_names_nci60_srx.rds") %>% rename(sample = "sample_id.srx")
 map_sample_name_nci60 <- function(res_df) {
@@ -88,6 +92,8 @@ benchmark_results <- run_full_benchmark_concordance(
   genes = genes_to_analyze,
   tools = tools_to_analyze
 )
+# optitype_calls_lens_hlamajority <- all_data_combined %>% dplyr::filter(tool == "optitype" | tool == "Optitype_ad")
+# write.csv(optitype_calls_lens_hlamajority, file = "../optitype-calls-lens-hlamajority.csv", quote = F, row.names = F)
 full_stats <- calculate_overall_stats(benchmark_results$summary)
 df <- benchmark_results$tool_gene_discordance
 outdir <- c("../../data/processed/cell-lines-after-polysolver-change/lens-majority-benchmark/")

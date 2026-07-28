@@ -65,20 +65,33 @@ map_sample_name_nci60 <- function(res_df) {
     #left_join(sample_names_nci60, by = c("sample" = "Experiment")) %>%
     left_join(sample_names_nci60, by = "sample") %>%
     mutate(sample_id = coalesce(sample_id.new, sample)) %>%
-    dplyr::select(-sample_id.new, -sample_id.srr) %>% 
+    dplyr::select(-sample_id.new
+                  #, -sample_id.srr
+                  ) %>% 
     dplyr::mutate(sample = sample_id) 
     #dplyr::select(-sample_id, -sample_id.old, -sample_id.gs)
 }
 
+# map_sample_name_nci60_full <- function(res_df) {
+#   res_df <- res_df %>%
+#     #left_join(sample_names_nci60, by = c("sample" = "Experiment")) %>%
+#     left_join(sample_names_nci60, by = "sample") %>%
+#     mutate(sample_id = coalesce(sample_id.new, sample)) %>%
+#     dplyr::mutate(sample = sample_id)
+#     #select(-sample_id.new, -sample_id.srr) %>% 
+#     #dplyr::select(-sample_id.old, -sample_id.gs)
+# }
 map_sample_name_nci60_full <- function(res_df) {
   res_df <- res_df %>%
     #left_join(sample_names_nci60, by = c("sample" = "Experiment")) %>%
     left_join(sample_names_nci60, by = "sample") %>%
-    mutate(sample_id = coalesce(sample_id.new, sample)) %>%
+    mutate(sample_id = coalesce(sample_id.new, sample),
+           sample_id.srx = sample) %>%
     dplyr::mutate(sample = sample_id)
-    #select(-sample_id.new, -sample_id.srr) %>% 
-    #dplyr::select(-sample_id.old, -sample_id.gs)
+  #select(-sample_id.new, -sample_id.srr) %>% 
+  #dplyr::select(-sample_id.old, -sample_id.gs)
 }
+
 print("master_df...")
 head(master_df)
 master_df_mapped <- map_sample_name_nci60(master_df)                   
@@ -98,6 +111,8 @@ benchmark_results <- run_full_benchmark(
   genes = genes_to_analyze,
   tools = tools_to_analyze
 )
+# optitype_calls_before_polysolver_change <- master_df_mapped %>% dplyr::filter(tool == "optitype")
+# write.csv(optitype_calls_before_polysolver_change, file = "../optitype-calls-before-polysolver-change.csv", quote = F, row.names = F)
 #benchmark_results$gold_standard_missing %>% group_by(Gene) %>% summarise(n = n())
 #saveRDS(benchmark_results, file = "data/results/hlamajority/nci-full-results-hlamajority-majority-vote.Rds")
 #saveRDS(benchmark_results, file = "../../data/processed/results/hlamajority/cell-lines/nci-full-results-hlamajority-majority-vote.Rds")
