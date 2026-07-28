@@ -137,29 +137,50 @@ run_comparison <- function(gold.standard, calls, tool_name) {
   scores_per_person <- mapply(count_correct_alleles, gold_aligned, call_aligned)
   scores_incorrect_calls <- scores_per_person[which(scores_per_person < 2)]
   ids_incorrect_calls <- names(scores_incorrect_calls)
-  gold_standard_incorrect_calls <- gold_aligned[ids_incorrect_calls]
-  incorrect_calls <- call_aligned[ids_incorrect_calls]
+  
   # Calculate final accuracy
   total_correct_alleles <- sum(scores_per_person)
   max_possible_alleles <- 2 * length(scores_per_person)
   
-  # make gold standard of incorrect calls into a table
-  gold_standard_calls_from_incorrect_tool_calls <- do.call(rbind.data.frame, gold_standard_incorrect_calls)
-  colnames(gold_standard_calls_from_incorrect_tool_calls) <- c("allele1_gold_standard", "allele2_gold_standard")
-  rownames(gold_standard_calls_from_incorrect_tool_calls) <- names(gold_standard_incorrect_calls)
-  
-  # make incorrect calls into a table
-  incorrect_tool_calls <- do.call(rbind.data.frame, incorrect_calls)
-  colnames(incorrect_tool_calls) <- c("allele1_tool", "allele2_tool")
-  rownames(incorrect_tool_calls) <- names(incorrect_calls)
-  
-  # join tables
-  gold_standard_vs_tool_incorrect_calls <- cbind.data.frame(gold_standard_calls_from_incorrect_tool_calls,
-                                                            incorrect_tool_calls
-  )
-  
-  gold_standard_vs_tool_incorrect_calls$score <- scores_incorrect_calls
-  
+  # Handle perfect accuracy case
+  if (length(scores_incorrect_calls) == 0) {
+    
+    print("No incorrect calls")
+    
+    gold_standard_vs_tool_incorrect_calls <- data.frame()
+    
+  } else {
+    
+    gold_standard_incorrect_calls <- gold_aligned[ids_incorrect_calls]
+    incorrect_calls <- call_aligned[ids_incorrect_calls]
+    
+    gold_standard_calls_from_incorrect_tool_calls <- 
+      do.call(rbind.data.frame, gold_standard_incorrect_calls)
+    
+    colnames(gold_standard_calls_from_incorrect_tool_calls) <- 
+      c("allele1_gold_standard", "allele2_gold_standard")
+    
+    rownames(gold_standard_calls_from_incorrect_tool_calls) <- 
+      names(gold_standard_incorrect_calls)
+    
+    
+    incorrect_tool_calls <- do.call(rbind.data.frame, incorrect_calls)
+    
+    colnames(incorrect_tool_calls) <- 
+      c("allele1_tool", "allele2_tool")
+    
+    rownames(incorrect_tool_calls) <- 
+      names(incorrect_calls)
+    
+    
+    gold_standard_vs_tool_incorrect_calls <- 
+      cbind.data.frame(
+        gold_standard_calls_from_incorrect_tool_calls,
+        incorrect_tool_calls
+      )
+    
+    gold_standard_vs_tool_incorrect_calls$score <- scores_incorrect_calls
+  }
   final_accuracy <- total_correct_alleles / max_possible_alleles
   print(paste("Tool name: ", tool_name, sep = ""))
   print(paste("Accuracy:", round(final_accuracy * 100, 2), "%"))
@@ -309,35 +330,52 @@ extract_mismatches <- function(incorrect_df) {
 
 analyze_difficult_alleles <- function(full_gold_standard, incorrect_df) {
   
-  # 1. Get the specific mismatch pairs
+  # No incorrect calls
+  if (nrow(incorrect_df) == 0) {
+    
+    all_gs_alleles <- unlist(full_gold_standard)
+    all_gs_alleles <- all_gs_alleles[!is.na(all_gs_alleles)]
+    
+    total_counts <- as.data.frame(table(all_gs_alleles))
+    colnames(total_counts) <- c("True_Allele", "Total_Occurrences")
+    
+    total_counts$Errors <- 0
+    total_counts$Accuracy <- 1
+    total_counts$Error_Rate <- 0
+    
+    stats <- total_counts %>%
+      arrange(desc(Total_Occurrences))
+    
+    return(stats)
+  }
+  
+  
+  # Existing behaviour for incorrect calls
   mismatches <- extract_mismatches(incorrect_df)
   
-  # 2. Calculate "Missed Counts" (Numerator)
   missed_counts <- mismatches %>%
     group_by(True_Allele) %>%
-    summarise(Errors = n())
+    summarise(Errors = n(), .groups = "drop")
   
-  # 3. Calculate "Total Counts" in the Gold Standard (Denominator)
-  # We flatten the entire Gold Standard list into one big vector of alleles
+  
   all_gs_alleles <- unlist(full_gold_standard)
-  # Remove NAs
   all_gs_alleles <- all_gs_alleles[!is.na(all_gs_alleles)]
   
   total_counts <- as.data.frame(table(all_gs_alleles))
   colnames(total_counts) <- c("True_Allele", "Total_Occurrences")
   
-  # 4. Merge
-  stats <- merge(total_counts, missed_counts, by = "True_Allele", all.x = TRUE)
+  stats <- merge(
+    total_counts,
+    missed_counts,
+    by = "True_Allele",
+    all.x = TRUE
+  )
   
-  # Fill NAs with 0 (alleles that were never missed)
   stats$Errors[is.na(stats$Errors)] <- 0
   
-  # 5. Calculate Metrics
   stats$Accuracy <- 1 - (stats$Errors / stats$Total_Occurrences)
-  stats$Error_Rate <- (stats$Errors / stats$Total_Occurrences)
+  stats$Error_Rate <- stats$Errors / stats$Total_Occurrences
   
-  # 6. Sort by Error Rate (Desc) then Total Occurrences (Desc)
-  # We usually care about alleles that appear at least a few times (e.g. > 5)
   stats <- stats %>%
     arrange(desc(Error_Rate), desc(Total_Occurrences))
   
@@ -458,100 +496,150 @@ format_publication_table <- function(full_stats_df) {
 
 run_full_benchmark <- function(master_df, gold_standard, genes, tools) {
   
-  # Initialize storage
-  summary_stats <- data.frame() # For Accuracy/Call Rate table
-  detailed_artifacts <- list()  # For specific error tables/heatmaps
-  gold_standard_missing <- data.frame()   
+  summary_stats <- data.frame()
+  detailed_artifacts <- list()
+  gold_standard_missing <- data.frame()
+  
   for (gene in genes) {
-    print(paste("=== Processing HLA-", gene, " ===", sep=""))
     
-    # 1. Prepare Gold Standard for this gene
-    #    (Extract cols A1/A2, convert to list, Clean G-groups)
+    cat("\n==============================\n")
+    cat("Processing HLA-", gene, "\n", sep="")
+    cat("==============================\n")
+    
     cols <- c(paste0(gene, "1"), paste0(gene, "2"))
-    gs_list_raw <- df_to_list_fix(gold_standard, cols = cols)
-    print("dim(gold_standard)")
-    print(dim(gold_standard))
-    print("length(gs_list_raw)")
-    print(length(gs_list_raw))
-    gs_list_clean <- clean_list(gs_list_raw, gene)
-    # Gold standard callable samples (non-NA alleles)
+    
+    cat("Gold standard columns:")
+    print(cols)
+    
+    # Gold standard
+    gs_list_raw <- tryCatch(
+      df_to_list_fix(gold_standard, cols = cols),
+      error = function(e) {
+        stop("FAILED df_to_list_fix gold standard: ", e$message)
+      }
+    )
+    
+    cat("Gold standard raw length:", length(gs_list_raw), "\n")
+    
+    gs_list_clean <- tryCatch(
+      clean_list(gs_list_raw, gene),
+      error = function(e) {
+        stop("FAILED clean_list gold standard for gene ", gene, ": ", e$message)
+      }
+    )
+    
+    cat("Gold standard clean length:", length(gs_list_clean), "\n")
+    
     gs_callable <- sapply(gs_list_clean, function(x) !any(is.na(x)))
     gs_callable_ids <- names(gs_callable)[gs_callable]
     n_gs_called <- length(gs_callable_ids)
-    print(n_gs_called)
-    gs_not_callable <- sapply(gs_list_clean, function(x) any(is.na(x)))
-    sapply(gs_list_clean, function(x) if (any(is.na(x))){print(x)})
-    gs_not_callable_ids <- names(gs_not_callable)[gs_not_callable]
-    print(paste("non-callable gold standard:", gs_not_callable_ids, sep = " "))
-    if (length(gs_not_callable_ids) > 0) {
-      
-      missing_df <- data.frame(
-        Gene = gene,
-        Sample = gs_not_callable_ids,
-        GS_Allele1 = sapply(gs_list_clean[gs_not_callable_ids], function(x) x[1]),
-        GS_Allele2 = sapply(gs_list_clean[gs_not_callable_ids], function(x) x[2]),
-        stringsAsFactors = FALSE
-      )
-      
-      gold_standard_missing <- rbind(gold_standard_missing, missing_df)
-    }
+    
+    cat("Callable GS samples:", n_gs_called, "\n")
+    
+    
     for (tool in tools) {
-      # 2. Prepare Tool Data
+      
+      cat("\n------------------------------\n")
+      cat("Tool:", tool, "\n")
+      cat("------------------------------\n")
+      
       tool_data <- master_df %>% filter(tool == !!tool)
       
-      # Skip if tool didn't call this gene (safety check)
-      if (nrow(tool_data) == 0) next
+      cat("Rows in tool_data:", nrow(tool_data), "\n")
       
-      # Convert to list and clean
-      tool_list_raw <- df_to_list_fix(tool_data, cols = cols)
-      tool_list_clean <- clean_list(tool_list_raw, gene)
+      if (nrow(tool_data) == 0) {
+        cat("Skipping - no data\n")
+        next
+      }
       
-      # 3. Run Accuracy Comparison (excludes NAs)
-      #    Note: ensure run_comparison returns the list we defined previously
-      metrics <- run_comparison(gs_list_clean, tool_list_clean, tool_name = tool)
+      # Prepare tool data
+      tool_list_raw <- tryCatch(
+        df_to_list_fix(tool_data, cols = cols),
+        error = function(e) {
+          stop("FAILED df_to_list_fix tool data: ", e$message)
+        }
+      )
       
-      # 4. Run Error Typing (Zygosity checks)
-      #    Note: We use the cleaned lists here
-      error_types <- analyze_error_types(gs_list_clean, tool_list_clean, tool)
+      cat("Tool raw length:", length(tool_list_raw), "\n")
+      cat("First sample:", names(tool_list_raw)[1], "\n")
+      print(head(tool_list_raw[[1]]))
       
-      # 5. Run Difficult Allele Analysis
-      #    (Extracts the 'incorrect_df' from the metrics object)
-      diff_alleles <- analyze_difficult_alleles(gs_list_clean, metrics$gold_standard_vs_tool_incorrect_calls)
       
-      # 6. Store Summary Stats
-      # Calculate Call Rate
-      # common_ids count vs valid_indices count from run_comparison logic
-      # (We can reconstruct it here roughly or extract if run_comparison returns it)
-      # Simpler approach: 
-      # n_total <- length(intersect(names(gs_list_clean), names(tool_list_clean)))
-      # # Count how many in tool list are NOT NA
-      # n_called <- sum(!sapply(tool_list_clean, function(x) any(is.na(x))))
-      # call_rate <- n_called / n_total
-      # Restrict to samples where GS made a call
+      tool_list_clean <- tryCatch(
+        clean_list(tool_list_raw, gene),
+        error = function(e) {
+          stop(
+            "FAILED clean_list for tool ",
+            tool,
+            " gene ",
+            gene,
+            ": ",
+            e$message
+          )
+        }
+      )
+      
+      cat("Tool clean length:", length(tool_list_clean), "\n")
+      print(head(tool_list_clean[[1]]))
+      
+      
+      # Run comparison
+      metrics <- tryCatch(
+        run_comparison(
+          gs_list_clean,
+          tool_list_clean,
+          tool_name = tool
+        ),
+        error = function(e) {
+          cat("\n!!! ERROR IN run_comparison !!!\n")
+          cat("Gene:", gene, "\n")
+          cat("Tool:", tool, "\n")
+          cat(e$message, "\n")
+          traceback()
+          stop(e)
+        }
+      )
+      
+      cat("Finished comparison successfully\n")
+      cat("Accuracy:", metrics$final_accuracy, "\n")
+      
+      
+      # Remaining analysis
+      error_types <- analyze_error_types(
+        gs_list_clean,
+        tool_list_clean,
+        tool
+      )
+      
+      diff_alleles <- analyze_difficult_alleles(
+        gs_list_clean,
+        metrics$gold_standard_vs_tool_incorrect_calls
+      )
+      
       tool_sub <- tool_list_clean[gs_callable_ids]
       
-      # Tool callable among GS-callable samples
-      tool_callable <- sapply(tool_sub, function(x) !any(is.na(x)))
+      tool_callable <- sapply(
+        tool_sub,
+        function(x) !any(is.na(x))
+      )
       
-      n_total <- length(gs_callable_ids)        # gold-standard calls
-      n_called <- sum(tool_callable)             # tool calls where GS is callable
-      n_excluded_na <- n_total - n_called        # guaranteed ≥ 0
+      n_total <- length(gs_callable_ids)
+      n_called <- sum(tool_callable)
       
-      call_rate <- n_called / n_total
+      summary_stats <- rbind(
+        summary_stats,
+        data.frame(
+          Gene = gene,
+          Tool = tool,
+          Accuracy = metrics$final_accuracy,
+          Call_Rate = n_called/n_total,
+          Num_Samples = n_total,
+          Num_GS_Called = n_gs_called,
+          Num_Tool_Called = n_called,
+          Num_Excluded_NA = n_total - n_called
+        )
+      )
       
-      summary_stats <- rbind(summary_stats, data.frame(
-        Gene = gene,
-        Tool = tool,
-        Accuracy = metrics$final_accuracy,
-        Call_Rate = call_rate,
-        Num_Samples = n_total,              # GS callable
-        Num_GS_Called = n_gs_called,         # same as Num_Samples (explicit)
-        Num_Tool_Called = n_called,
-        Num_Excluded_NA = n_excluded_na
-      ))
-      
-      # 7. Store Detailed Artifacts (nested list)
-      # Structure: List$Gene$Tool$Object
       detailed_artifacts[[gene]][[tool]] <- list(
         metrics = metrics,
         error_types = error_types,
@@ -560,10 +648,12 @@ run_full_benchmark <- function(master_df, gold_standard, genes, tools) {
     }
   }
   
-  return(list(summary = summary_stats, 
-              details = detailed_artifacts,
-              gold_standard_missing = gold_standard_missing
-      )
+  return(
+    list(
+      summary = summary_stats,
+      details = detailed_artifacts,
+      gold_standard_missing = gold_standard_missing
+    )
   )
 }
 
