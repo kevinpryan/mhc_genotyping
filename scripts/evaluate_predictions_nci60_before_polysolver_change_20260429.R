@@ -94,7 +94,7 @@ map_sample_name_nci60_full <- function(res_df) {
 
 print("master_df...")
 head(master_df)
-master_df_mapped <- map_sample_name_nci60(master_df)                   
+#master_df_mapped <- map_sample_name_nci60(master_df)                   
 master_df_mapped_full <- map_sample_name_nci60_full(master_df)                   
 #saveRDS(master_df_mapped_full, file = "data/results/hlamajority/nci-map.Rds")
 #outdir <- c("../../data/processed/results/hlamajority/cell-lines/")
@@ -106,7 +106,7 @@ saveRDS(master_df_mapped_full, file = paste(outdir, "nci-map.Rds", sep = ""))
 
 # Run the benchmark
 benchmark_results <- run_full_benchmark(
-  master_df = master_df_mapped,
+  master_df = master_df_mapped_full,
   gold_standard = gold.standard.nci60,
   genes = genes_to_analyze,
   tools = tools_to_analyze
@@ -131,7 +131,7 @@ kable(clean_table, caption = "Accuracy by Gene and Overall (Excluding NAs)")
 #all_results_hlamajority <- vroom("../../data/cell-lines/benchmark-cell-lines-all-kourami-3-63-0-majority-vote/combined_results/nf_hlamajority_votes_combined_sorted.tsv")
 all_results_hlamajority <- vroom("../../data/raw/cell-lines-before-polysolver-change/majority/combined_results/nf_hlamajority_votes_combined_sorted.tsv")
 
-all_results_hlamajority_cell_line_id <- map_sample_name_nci60(all_results_hlamajority)
+all_results_hlamajority_cell_line_id <- map_sample_name_nci60_full(all_results_hlamajority)
 
 extract_scores_tool <- function(results, gene, tool) {
   x <- results$details[[gene]][[tool]]$metrics$scores_per_person
