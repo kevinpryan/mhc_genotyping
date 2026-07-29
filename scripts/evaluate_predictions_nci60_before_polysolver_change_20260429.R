@@ -1,5 +1,6 @@
 library(vroom)
 library(knitr)
+librar(dplyr)
 module_path <- "/hlamajority-paper/external/nf-hlamajority/bin/"
 options(box.path = module_path)
 box::use(lib/df_to_list[...])
